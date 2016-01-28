@@ -10,221 +10,249 @@ namespace Refactoring
 {
     public class Tusc
     {
+        private static System.Collections.Generic.List<Refactoring.User> TuscUsers { get; set; }
+        private static System.Collections.Generic.List<Product> TuscProducts { get; set; }
+        private static User TuscUser;
+        private const int MaxLoginRetries = 3;
+        private static int MenuSelection = 0;
+
         public static void Start(List<User> usrs, List<Product> prods)
         {
-            // Write welcome message
-            Console.WriteLine("Welcome to TUSC");
-            Console.WriteLine("---------------");
+            TuscUsers = usrs;
+            TuscProducts = prods;
 
-            // Login
-            Login:
-            bool loggedIn = false; // Is logged in?
+            DisplayWelcomeMessage();
 
-            // Prompt for user input
-            Console.WriteLine();
-            Console.WriteLine("Enter Username:");
-            string name = Console.ReadLine();
+            if (PerformUserLogin())
+                PurchaseItems();
 
-            // Validate Username
-            bool valUsr = false; // Is valid user?
-            if (!string.IsNullOrEmpty(name))
+            CloseProgram();
+        }
+
+        #region Login Methods
+
+        //The user will have a limited amount of tries to login. Username and password are done together for security purposes.
+        private static bool PerformUserLogin()
+        {
+            bool LoggedInStatus = false;
+            int tryCount = 0;
+
+            while (tryCount < MaxLoginRetries && !LoggedInStatus)
             {
-                for (int i = 0; i < 5; i++)
+                WriteLine("Enter Username:");
+                string UserName = Console.ReadLine();
+
+                WriteLine("Enter Password:");
+                string UserPassword = Console.ReadLine();
+
+                if (LoginUser(UserName, UserPassword))
                 {
-                    User user = usrs[i];
-                    // Check that name matches
-                    if (user.Name == name)
-                    {
-                        valUsr = true;
-                    }
-                }
-
-                // if valid user
-                if (valUsr)
-                {
-                    // Prompt for user input
-                    Console.WriteLine("Enter Password:");
-                    string pwd = Console.ReadLine();
-
-                    // Validate Password
-                    bool valPwd = false; // Is valid password?
-                    for (int i = 0; i < 5; i++)
-                    {
-                        User user = usrs[i];
-
-                        // Check that name and password match
-                        if (user.Name == name && user.Pwd == pwd)
-                        {
-                            valPwd = true;
-                        }
-                    }
-
-                    // if valid password
-                    if (valPwd == true)
-                    {
-                        loggedIn = true;
-
-                        // Show welcome message
-                        Console.Clear();
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine();
-                        Console.WriteLine("Login successful! Welcome " + name + "!");
-                        Console.ResetColor();
-                        
-                        // Show remaining balance
-                        double bal = 0;
-                        for (int i = 0; i < 5; i++)
-                        {
-                            User usr = usrs[i];
-
-                            // Check that name and password match
-                            if (usr.Name == name && usr.Pwd == pwd)
-                            {
-                                bal = usr.Bal;
-
-                                // Show balance 
-                                Console.WriteLine();
-                                Console.WriteLine("Your balance is " + usr.Bal.ToString("C"));
-                            }
-                        }
-
-                        // Show product list
-                        while (true)
-                        {
-                            // Prompt for user input
-                            Console.WriteLine();
-                            Console.WriteLine("What would you like to buy?");
-                            for (int i = 0; i < 7; i++)
-                            {
-                                Product prod = prods[i];
-                                Console.WriteLine(i + 1 + ": " + prod.Name + " (" + prod.Price.ToString("C") + ")");
-                            }
-                            Console.WriteLine(prods.Count + 1 + ": Exit");
-
-                            // Prompt for user input
-                            Console.WriteLine("Enter a number:");
-                            string answer = Console.ReadLine();
-                            int num = Convert.ToInt32(answer);
-                            num = num - 1; /* Subtract 1 from number
-                            num = num + 1 // Add 1 to number */
-
-                            // Check if user entered number that equals product count
-                            if (num == 7)
-                            {
-                                // Update balance
-                                foreach (var usr in usrs)
-                                {
-                                    // Check that name and password match
-                                    if (usr.Name == name && usr.Pwd == pwd)
-                                    {
-                                        usr.Bal = bal;
-                                    }
-                                }
-
-                                // Write out new balance
-                                string json = JsonConvert.SerializeObject(usrs, Formatting.Indented);
-                                File.WriteAllText(@"Data\Users.json", json);
-
-                                // Write out new quantities
-                                string json2 = JsonConvert.SerializeObject(prods, Formatting.Indented);
-                                File.WriteAllText(@"Data\Products.json", json2);
-
-
-                                // Prevent console from closing
-                                Console.WriteLine();
-                                Console.WriteLine("Press Enter key to exit");
-                                Console.ReadLine();
-                                return;
-                            }
-                            else
-                            {
-                                Console.WriteLine();
-                                Console.WriteLine("You want to buy: " + prods[num].Name);
-                                Console.WriteLine("Your balance is " + bal.ToString("C"));
-
-                                // Prompt for user input
-                                Console.WriteLine("Enter amount to purchase:");
-                                answer = Console.ReadLine();
-                                int qty = Convert.ToInt32(answer);
-
-                                // Check if balance - quantity * price is less than 0
-                                if (bal - prods[num].Price * qty < 0)
-                                {
-                                    Console.Clear();
-                                    Console.ForegroundColor = ConsoleColor.Red;
-                                    Console.WriteLine();
-                                    Console.WriteLine("You do not have enough money to buy that.");
-                                    Console.ResetColor();
-                                    continue;
-                                }
-
-                                // Check if quantity is less than quantity
-                                if (prods[num].Qty <= qty)
-                                {
-                                    Console.Clear();
-                                    Console.ForegroundColor = ConsoleColor.Red;
-                                    Console.WriteLine();
-                                    Console.WriteLine("Sorry, " + prods[num].Name + " is out of stock");
-                                    Console.ResetColor();
-                                    continue;
-                                }
-
-                                // Check if quantity is greater than zero
-                                if (qty > 0)
-                                {
-                                    // Balance = Balance - Price * Quantity
-                                    bal = bal - prods[num].Price * qty;
-
-                                    // Quanity = Quantity - Quantity
-                                    prods[num].Qty = prods[num].Qty - qty;
-
-                                    Console.Clear();
-                                    Console.ForegroundColor = ConsoleColor.Green;
-                                    Console.WriteLine("You bought " + qty + " " + prods[num].Name);
-                                    Console.WriteLine("Your new balance is " + bal.ToString("C"));
-                                    Console.ResetColor();
-                                }
-                                else
-                                {
-                                    // Quantity is less than zero
-                                    Console.Clear();
-                                    Console.ForegroundColor = ConsoleColor.Yellow;
-                                    Console.WriteLine();
-                                    Console.WriteLine("Purchase cancelled");
-                                    Console.ResetColor();
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // Invalid Password
-                        Console.Clear();
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine();
-                        Console.WriteLine("You entered an invalid password.");
-                        Console.ResetColor();
-
-                        goto Login;
-                    }
+                    LoggedInStatus = true;
+                    DisplayLoginSuccessMessage();
                 }
                 else
-                {
-                    // Invalid User
-                    Console.Clear();
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine();
-                    Console.WriteLine("You entered an invalid user.");
-                    Console.ResetColor();
+                    DisplayFailedLoginMessage();
 
-                    goto Login;
+                tryCount++;
+            }
+
+            return LoggedInStatus;
+        }
+
+
+        private static bool LoginUser(string UserName, string UserPassword)
+        {
+            bool LoginStatus = false;
+
+            if (!string.IsNullOrEmpty(UserName) && !string.IsNullOrEmpty(UserPassword))
+            {
+                for (int i = 0; i < TuscUsers.Count() && !LoginStatus; i++)
+                {
+                    TuscUser = TuscUsers[i];
+                    if (TuscUser.Name == UserName)
+                    {
+                        if (TuscUser.Name == UserName && TuscUser.Pwd == UserPassword)
+                            LoginStatus = true;
+                    }
                 }
             }
 
-            // Prevent console from closing
-            Console.WriteLine();
-            Console.WriteLine("Press Enter key to exit");
+            return LoginStatus;
+        }
+        #endregion
+
+        #region Purchase Methods
+        private static void PurchaseItems()
+        {
+            DisplayAccountBalance();
+
+            while (true)
+            {
+                DisplayMenu();
+                
+                MenuSelection = GetUserSelection();
+  
+                if (MenuSelection == TuscProducts.Count())
+                {
+                    UpdateData();
+                    return;
+                }
+                else if(MenuSelectionValid()){   
+                    int ItemQuantity = QueryItemPurchaseQuanity();
+
+                    if (CheckStockandCost(ItemQuantity))
+                        PurchaseItem(ItemQuantity);
+                    else
+                        DisplayPurchaseCancelled();
+               }
+            }
+        }
+
+        private static bool MenuSelectionValid()
+        {
+            if (MenuSelection > -1 && MenuSelection < TuscProducts.Count())
+                return true;
+            else
+                WriteErrorLine("Invalid selection");
+                return false;
+        }
+
+
+        private static void PurchaseItem(int ItemQuantity)
+        {
+            TuscUser.Bal = TuscUser.Bal - TuscProducts[MenuSelection].Price * ItemQuantity;
+            TuscProducts[MenuSelection].Qty = TuscProducts[MenuSelection].Qty - ItemQuantity;
+
+            Console.Clear();
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("You bought " + ItemQuantity + " " + TuscProducts[MenuSelection].Name);
+            Console.WriteLine("Your new balance is " + TuscUser.Bal.ToString("C"));
+            Console.ResetColor();
+        }
+
+        private static bool CheckStockandCost(int ItemQuantity)
+        {
+            bool isValidPurchase = true;
+
+            if (ItemQuantity == 0){
+                Console.Clear();
+                isValidPurchase = false;
+            }else if (TuscUser.Bal - TuscProducts[MenuSelection].Price * ItemQuantity < 0){
+                Console.Clear();
+                WriteErrorLine("You do not have enough money to buy that.");
+                isValidPurchase = false;
+            }
+            else if (TuscProducts[MenuSelection].Qty <= ItemQuantity)
+            {
+                Console.Clear();
+                WriteErrorLine("Sorry, " + TuscProducts[MenuSelection].Name + " is out of stock");
+                isValidPurchase = false;
+            }
+
+            return isValidPurchase;
+        }
+
+        private static int QueryItemPurchaseQuanity()
+        {
+            WriteLine("You want to buy: " + TuscProducts[MenuSelection].Name);
+            Console.WriteLine("Your balance is " + TuscUser.Bal.ToString("C"));
+            Console.WriteLine("Enter amount to purchase:");
+            return ValidIntegerInput();
+        }
+        #endregion
+
+        #region Class Methods
+
+        private static int ValidIntegerInput()
+        {
+            string UserInput = Console.ReadLine();
+            return UserInput != "" ?Convert.ToInt32(UserInput) : 0;
+        }
+
+        private static int GetUserSelection()
+        {
+            Console.WriteLine("Enter a number:");
+            return ValidIntegerInput() - 1;
+        }
+
+        private static void UpdateData()
+        {
+            string json = JsonConvert.SerializeObject(TuscUsers, Formatting.Indented);
+            File.WriteAllText(@"Data\Users.json", json);
+
+            // Write out new quantities
+            string json2 = JsonConvert.SerializeObject(TuscProducts, Formatting.Indented);
+            File.WriteAllText(@"Data\Products.json", json2);
+        }
+
+        private static void CloseProgram()
+        {
+            WriteLine("Press Enter key to exit");
             Console.ReadLine();
         }
+        #endregion
+
+        #region Display Methods
+        private static void DisplayFailedLoginMessage()
+        {
+            Console.Clear();
+            Console.ForegroundColor = ConsoleColor.Red;
+            WriteLine("You entered an invalid user name or password.");
+            Console.ResetColor();
+        }
+
+        private static void DisplayMenu()
+        {
+            WriteLine("What would you like to buy?");
+            for (int i = 0; i < TuscProducts.Count(); i++)
+            {
+                Product prod = TuscProducts[i];
+                Console.WriteLine(i + 1 + ": " + prod.Name + " (" + prod.Price.ToString("C") + ")");
+            }
+            Console.WriteLine(TuscProducts.Count + 1 + ": Exit");
+        }
+
+        private static void DisplayPurchaseCancelled()
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            WriteLine("Purchase cancelled");
+            Console.ResetColor();
+        }
+
+        private static void DisplayAccountBalance()
+        {
+                WriteLine("Your balance is " + TuscUser.Bal.ToString("C"));
+        }
+
+        private static void DisplayLoginSuccessMessage()
+        {
+            Console.Clear();
+            Console.ForegroundColor = ConsoleColor.Green;
+            WriteLine("Login successful! Welcome " + TuscUser.Name + "!");
+            Console.ResetColor();
+        }
+
+        private static void DisplayWelcomeMessage()
+        {
+            Console.WriteLine("Welcome to TUSC");
+            Console.WriteLine("---------------");
+        }
+
+
+        private static void WriteLine(string text)
+        {
+            Console.WriteLine();
+            Console.WriteLine(text);
+        }
+
+        private static void WriteErrorLine(string text)
+        {
+            Console.Clear();
+            Console.ForegroundColor = ConsoleColor.Red;
+            WriteLine(text);
+            Console.ResetColor();
+        }
+        #endregion
+
     }
 }
